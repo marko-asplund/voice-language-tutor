@@ -1,45 +1,41 @@
-# Private ElevenLabs agent
+# Required ElevenLabs setup
 
-Live verification is pending. No agent or paid calls were created during implementation.
+## 1. Configure the private agent
 
-1. Create an ElevenLabs private agent and enable authentication. Keep agent tools disabled.
-2. Choose an available **OpenAI** conversation model in the ElevenLabs dashboard, and one
-   multilingual voice that supports your target language. This model runs through ElevenLabs.
-3. Copy `prompts/tutor_system_prompt.md` into the agent prompt. Define the five dynamic variables:
-   `target_language`, `native_language`, `level`, `topic`, `student_name`.
-4. Suggested first message: "Let's practice {{target_language}}. What would you like to say about {{topic}}?"
-   Adapt it into your target language for your initial agent. Configure the agent's language to
-   match your initial practice language; changing the UI variable alone does not change ASR settings.
-5. Start with patient turn taking: approximately 10 seconds for learner pauses, normal interruption
-   enabled, short responses. These are proposed values, not tested settings. Tune with real pauses.
-6. Put the key and agent ID only in the ignored `.env`. The key needs signed-URL and conversation
-   read permissions. Keep the agent private; configure vendor retention to your preference.
-7. Set `APP_MODE=live` and supply `OPENAI_API_KEY` and `OPENAI_REVIEW_MODEL`. Restart the server.
+In the ElevenLabs dashboard:
 
-The backend requests `include_conversation_id=true`, keeps the issued ID if returned, and compares
-it with the SDK's `getId()`. If absent, it verifies the SDK ID against the configured agent before
-binding it. Final transcript retrieval checks both conversation and agent IDs.
-Signed URLs only travel in the no-store connection response and are not saved in browser storage.
+- Create a private agent and enable authentication.
+- Select an available **OpenAI conversation model** and a voice that supports your target language.
+- Set the agent's language to your practice language. The UI's target-language variable guides
+  the tutor prompt; it does not change the agent's speech-recognition language configuration.
+- Copy [tutor_system_prompt.md](../prompts/tutor_system_prompt.md) into the agent's system prompt.
+  Ensure these dynamic variables are defined: `target_language`, `native_language`, `level`,
+  `topic`, `student_name`. The app supplies all five when connecting.
+- Keep agent tools disabled for this app.
 
-## Record after live verification
+## 2. Create the API key
 
-- Agent ID: pending (local `.env`; do not record keys here)
-- OpenAI conversation model selected in ElevenLabs: pending
-- Voice ID/name: pending
-- Actual ASR language and turn-taking settings: pending
-- Working backend OpenAI review model: pending
-- Five-minute conversation / End / finalized transcript: pending
+Create an ElevenLabs API key with **ElevenAgents write permission**. Read-only access was
+insufficient in this project's setup; enabling write permission was required for the connection
+flow. The key also needs access to read conversation details so the backend can retrieve the final
+transcript. Use the key with the private agent configured above.
 
-## Verified implementation contracts, 2026-10-01
+## 3. Configure the local app
 
-- Node 24.21.0, Python 3.12.13, ElevenLabs client 1.26.0, Solid 1.9.15.
-- OpenAI SDK 3.22.1 (uses httpx2), FastAPI 0.142.2; exact packages in lockfiles.
-- Installed ElevenLabs declarations support `signedUrl`, `connectionType: 'websocket'`,
-  `dynamicVariables`, transcript/mode/status callbacks, `getId`, `setMicMuted`, `endSession`.
-- Installed SDK End path closes microphone input and audio output; browser confirmation is pending.
-- OpenAI uses `responses.parse(text_format=Review)`, `store=false`, no SDK retries.
+After `make setup`, edit the ignored local `.env`:
 
-Sources: [ElevenLabs JavaScript SDK](https://elevenlabs.io/docs/eleven-agents/libraries/java-script),
-[signed URL](https://elevenlabs.io/docs/eleven-agents/api-reference/conversations/get-signed-url),
-[conversation details](https://elevenlabs.io/docs/eleven-agents/api-reference/conversations/get),
-[OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs).
+```dotenv
+APP_MODE=live
+ELEVENLABS_API_KEY=<your ElevenLabs API key>
+ELEVENLABS_AGENT_ID=<your private agent ID>
+OPENAI_API_KEY=<your OpenAI API key>
+OPENAI_REVIEW_MODEL=<a model supporting Responses structured output>
+```
+
+Replace the placeholders locally and keep `.env` private (`chmod 600 .env`). OpenAI settings are
+required because the app uses a separate backend OpenAI request for the post-session text review.
+Restart `make serve`, open http://localhost:8000, and allow microphone access when you press Start.
+
+References: [agent authentication](https://elevenlabs.io/docs/eleven-agents/customization/authentication),
+[dynamic variables](https://elevenlabs.io/docs/eleven-agents/customization/personalization/dynamic-variables),
+[signed URLs](https://elevenlabs.io/docs/eleven-agents/api-reference/conversations/get-signed-url).

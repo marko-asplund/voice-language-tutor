@@ -28,3 +28,7 @@ install-node:
 	bash scripts/install-node.sh
 probe-review:
 	uv run python scripts/probe_review.py
+
+.PHONY: diagnose
+diagnose:
+	uv run python scripts/diagnose.py $(ARGS)

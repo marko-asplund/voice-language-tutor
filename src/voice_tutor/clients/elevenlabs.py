@@ -35,7 +35,9 @@ class ElevenLabs:
                 ) from None
             if response.status_code in (401, 403):
                 raise AppError(
-                    "provider_auth_failed", "Check ElevenLabs key permissions and agent access."
+                    "provider_auth_failed",
+                    "Check ElevenLabs key permissions and agent access.",
+                    upstream_status=response.status_code,
                 )
             if response.status_code == 429 or response.status_code >= 500:
                 if attempt == 0:
@@ -45,9 +47,14 @@ class ElevenLabs:
                     "provider_unavailable",
                     "ElevenLabs is unavailable; check access or credits.",
                     retryable=True,
+                    upstream_status=response.status_code,
                 )
             if not response.is_success:
-                raise AppError("provider_unavailable", "ElevenLabs rejected the request.")
+                raise AppError(
+                    "provider_unavailable",
+                    "ElevenLabs rejected the request.",
+                    upstream_status=response.status_code,
+                )
             try:
                 data = response.json()
                 if not isinstance(data, dict):

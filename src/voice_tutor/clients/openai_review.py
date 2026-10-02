@@ -54,15 +54,9 @@ class OpenAIReview:
                 retryable=True,
             ) from None
         except APIStatusError as exc:
-            if exc.status_code in (401, 403):
-                raise AppError(
-                    "provider_auth_failed", "Check OpenAI key permissions and model access."
-                ) from None
-            raise AppError(
-                "provider_unavailable",
-                "OpenAI rejected the review; check model access or credits.",
-                retryable=exc.status_code == 429 or exc.status_code >= 500,
-            ) from None
+            error = self.status_error(exc)
+            error.upstream_status = exc.status_code
+            raise error from None
         except (ValidationError, ValueError):
             raise AppError(
                 "review_incomplete", "Review output could not be validated.", retryable=True
@@ -82,3 +76,45 @@ class OpenAIReview:
 
     async def close(self) -> None:
         await self.client.close()
+
+    @staticmethod
+    def status_error(exc: APIStatusError) -> AppError:
+        if exc.status_code in (401, 403):
+            return AppError(
+                "provider_auth_failed", "Check OpenAI key permissions and model access."
+            )
+        # Inspect only machine-readable categories; never expose the provider message/body.
+        body = exc.body if isinstance(exc.body, dict) else {}
+        error = body.get("error", body)
+        error = error if isinstance(error, dict) else {}
+        if error.get("code") == "insufficient_quota" or error.get("type") == "insufficient_quota":
+            return AppError(
+                "review_quota_exceeded",
+                "OpenAI API quota is unavailable. Check API billing, credits, and the usage "
+                "limit for the project associated with this key. ChatGPT subscription access "
+                "does not supply API credits. Once resolved, retry this review.",
+                retryable=True,
+            )
+        if exc.status_code == 429:
+            return AppError(
+                "review_rate_limited",
+                "OpenAI temporarily rate-limited the review. Wait briefly, then retry.",
+                retryable=True,
+            )
+        if exc.status_code == 404:
+            return AppError(
+                "review_model_unavailable",
+                "The configured OpenAI review model was not found or is unavailable to this "
+                "API project. Check OPENAI_REVIEW_MODEL and project model access.",
+            )
+        if exc.status_code in (400, 422):
+            return AppError(
+                "review_request_invalid",
+                "OpenAI rejected the review request format. Check that the configured model "
+                "supports Responses structured output and the review schema is compatible.",
+            )
+        return AppError(
+            "provider_unavailable",
+            "OpenAI is unavailable. Retry later if the problem is temporary.",
+            retryable=exc.status_code >= 500,
+        )

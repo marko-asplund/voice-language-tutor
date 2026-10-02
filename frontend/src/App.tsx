@@ -9,7 +9,7 @@ import ConversationControls from './components/ConversationControls';
 
 export default function App() {
   const [setup, setSetup] = createSignal<Setup>({
-    target_language: 'English', native_language: 'Spanish', level: 'B1', topic: 'Travel', student_name: '',
+    target_language: 'English', native_language: 'English', level: 'C1', topic: 'Travel', student_name: '',
   });
   const [mode, setMode] = createSignal('Loading');
   const [session, setSession] = createSignal<Session | null>(null);

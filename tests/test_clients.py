@@ -149,3 +149,50 @@ async def test_openai_structured_response_contract(kind):
         )
     assert len(calls) == 1
     await client.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "status,error,expected",
+    [
+        (429, {"code": "insufficient_quota"}, "review_quota_exceeded"),
+        (429, {"type": "insufficient_quota", "code": None}, "review_quota_exceeded"),
+        (429, {"code": "rate_limit_exceeded"}, "review_rate_limited"),
+        (404, {"code": "model_not_found"}, "review_model_unavailable"),
+        (400, {"code": "invalid_json_schema"}, "review_request_invalid"),
+        (503, {"code": "server_error"}, "provider_unavailable"),
+    ],
+)
+async def test_review_errors_are_actionable_and_safe(status, error, expected):
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx2.Response(
+            status,
+            json={
+                "error": {
+                    **error,
+                    "message": "synthetic-private-key-and-transcript",
+                }
+            },
+        )
+
+    http = httpx2.AsyncClient(transport=httpx2.MockTransport(handler))
+    client = OpenAIReview(
+        Settings(
+            _env_file=None, openai_api_key="synthetic-key", openai_review_model="synthetic-model"
+        ),
+        http,
+    )
+    from openai._base_client import get_platform
+
+    client.client._platform = get_platform()
+    with pytest.raises(AppError) as exc:
+        await client.review(SETUP, normalize([{"role": "user", "message": "Hello."}]))
+    assert exc.value.code == expected
+    assert exc.value.upstream_status == status
+    assert exc.value.retryable == (status in (429, 503))
+    assert "synthetic-private-key-and-transcript" not in exc.value.message
+    assert len(calls) == 1
+    await client.close()

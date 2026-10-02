@@ -47,6 +47,14 @@ class Review(BaseModel):
 
 
 class AppError(Exception):
-    def __init__(self, code: str, message: str, status: int = 502, retryable: bool = False):
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        status: int = 502,
+        retryable: bool = False,
+        upstream_status: int | None = None,
+    ):
         self.code, self.message, self.status, self.retryable = code, message, status, retryable
+        self.upstream_status = upstream_status
         super().__init__(code)
