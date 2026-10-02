@@ -15,6 +15,10 @@ OpenAI, so live practice requires internet access and API access to both service
 simulation mode lets you try the screens with a sample transcript and review without a microphone
 or provider calls.
 
+## Demo
+
+![Voice Language Tutor demo](docs/lang-tutor-demo.gif)
+
 ## Architecture
 
 ```mermaid
